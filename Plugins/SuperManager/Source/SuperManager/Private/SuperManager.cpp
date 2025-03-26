@@ -2,18 +2,139 @@
 
 #include "SuperManager.h"
 
+#include "ContentBrowserModule.h"
+#include "DebugHeader.h"
+#include "ObjectTools.h"
+#include "EditorAssetLibrary.h"
+
 #define LOCTEXT_NAMESPACE "FSuperManagerModule"
 
 void FSuperManagerModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	InitCBMenuExtention();
 }
+
+#pragma region 内容浏览器拓展
+
+void FSuperManagerModule::InitCBMenuExtention()
+{
+	// 加载内容浏览器
+	FContentBrowserModule& ContentBrowserModule=
+	FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+	// 获取内容浏览器右键菜单代理的引用
+	TArray<FContentBrowserMenuExtender_SelectedPaths>& AssetContextMenuExtenders= ContentBrowserModule.GetAllPathViewContextMenuExtenders();
+
+	// 将自己的代码增加到代理里面，就能新增一个右键按钮
+	FContentBrowserMenuExtender_SelectedPaths CustomCBMenuDelegate;
+	// 将自己的右键按钮(MenuExtender)绑定进去
+	// CustomCBMenuDelegate.BindRaw(this,&FSuperManagerModule::CustomCBMenuExtender);
+	// AssetContextMenuExtenders.Add(CustomCBMenuDelegate);
+	//与👆的写法一个意思，只是更加简洁
+	AssetContextMenuExtenders.Add(
+		FContentBrowserMenuExtender_SelectedPaths::CreateRaw(
+			this, &FSuperManagerModule::CustomCBMenuExtender
+		)
+	);
+}
+
+TSharedRef<FExtender> FSuperManagerModule::CustomCBMenuExtender(const TArray<FString>& SelectedPaths)
+{
+	TSharedRef<FExtender> MenuExtender(new FExtender());
+
+	// 当选中的文件大于的时候
+	if (SelectedPaths.Num() > 0)
+	{
+		// 朝右键菜单插入一个自己的按钮
+		MenuExtender->AddMenuExtension(
+			FName("Delete"),
+			EExtensionHook::After,
+			TSharedPtr<FUICommandList>(),
+			FMenuExtensionDelegate::CreateRaw(this, &FSuperManagerModule::AddCBMenuEntry));
+
+		FolderPathsSelected = SelectedPaths;
+	}
+	
+	return MenuExtender;
+}
+
+void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.AddMenuEntry(
+		FText::FromString(TEXT("删除未被使用的资产")),
+		FText::FromString(TEXT("安全的删除未被使用的资产")),
+		FSlateIcon(),
+		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteUnusedAssetButtonClicked)
+	);
+}
+
+void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
+{
+	if (FolderPathsSelected.Num() == 0)
+	{
+		return;
+	}
+	if (FolderPathsSelected.Num() > 1)
+	{	
+		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("请不要同时选取多个文件"));
+		return;
+	}
+
+	const TArray<FString> AssetsPathNames = UEditorAssetLibrary::ListAssets(FolderPathsSelected[0]);
+
+	if (AssetsPathNames.Num() == 0)
+	{
+		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("当前目录下未查找到资产"));
+		return;
+	}
+
+	EAppReturnType::Type ConfirmResult = DebugHeader::ShowMesDialog(EAppMsgType::YesNo,TEXT("当前文件夹下有") + FString::FromInt(AssetsPathNames.Num()) + TEXT("个文件，是否确认删除？"));
+	DebugHeader::Print(TEXT("当前选中的文件夹：") + FolderPathsSelected[0]);
+
+	if (ConfirmResult == EAppReturnType::No)
+	{
+		return;
+	}
+	
+	TArray<FAssetData> UnusedAssetDataArray;
+	for (const FString& AssetPathName : AssetsPathNames)
+	{
+		// 过滤掉不需要检索的文件
+		if (AssetPathName.Contains(TEXT("Developers")) ||
+			AssetPathName.Contains(TEXT("Collections")))
+		{
+			continue;
+		}
+
+		if (!UEditorAssetLibrary::DoesAssetExist(AssetPathName))continue;
+
+		TArray<FString> AssetReferences = UEditorAssetLibrary::FindPackageReferencersForAsset(AssetPathName);
+
+		if (AssetReferences.Num() == 0)
+		{
+			const FAssetData UnusedAssetData = UEditorAssetLibrary::FindAssetData(AssetPathName);
+			UnusedAssetDataArray.Add(UnusedAssetData);
+		}
+	}
+	if (UnusedAssetDataArray.Num() > 0)
+	{
+		ObjectTools::DeleteAssets(UnusedAssetDataArray);
+	}
+	else
+	{
+		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("当前文件夹下没有未被引用的资产"));
+	}
+	
+}
+
+#pragma endregion
 
 void FSuperManagerModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+	
 }
+
+
 
 #undef LOCTEXT_NAMESPACE
 	

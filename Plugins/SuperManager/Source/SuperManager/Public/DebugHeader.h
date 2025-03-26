@@ -4,7 +4,7 @@
 
 namespace DebugHeader
 {
-	inline void Print(const FString& Message, const FColor& Color = FColor::Red)
+	static void Print(const FString& Message, const FColor& Color = FColor::Red)
 	{
 		if (GEngine)
 		{
@@ -12,12 +12,12 @@ namespace DebugHeader
 		}
 	}
 
-	inline void PrintLog(const FString& Message)
+	static void PrintLog(const FString& Message)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 	}
 
-	inline EAppReturnType::Type ShowMesDialog(EAppMsgType::Type MsgType, const FString& Message, bool bShowMsgWarning)
+	static EAppReturnType::Type ShowMesDialog(EAppMsgType::Type MsgType, const FString& Message, bool bShowMsgWarning = true)
 	{
 		if (bShowMsgWarning)
 		{
@@ -29,7 +29,7 @@ namespace DebugHeader
 		}
 	}
 
-	inline void ShowNotifyInfo(const FString& Message)
+	static void ShowNotifyInfo(const FString& Message)
 	{
 		FNotificationInfo NotifyInfo(FText::FromString(Message));
 		NotifyInfo.bUseLargeFont = true;
