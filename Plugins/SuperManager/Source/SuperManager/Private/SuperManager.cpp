@@ -5,6 +5,8 @@
 #include "ContentBrowserModule.h"
 #include "DebugHeader.h"
 #include "ObjectTools.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetToolsModule.h"
 #include "EditorAssetLibrary.h"
 
 #define LOCTEXT_NAMESPACE "FSuperManagerModule"
@@ -95,6 +97,8 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 	{
 		return;
 	}
+
+	FixUpRedirectors();
 	
 	TArray<FAssetData> UnusedAssetDataArray;
 	for (const FString& AssetPathName : AssetsPathNames)
@@ -125,6 +129,35 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("当前文件夹下没有未被引用的资产"));
 	}
 	
+}
+
+void FSuperManagerModule::FixUpRedirectors()
+{
+	TArray<UObjectRedirector*> RedirectorToFixArray;
+
+	FAssetRegistryModule& AssetRegistryModule =
+		FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	FARFilter Filter;
+	Filter.bRecursivePaths = true;
+	Filter.PackagePaths.Emplace("/Game");
+	Filter.ClassPaths.Emplace("/Script/CoreUObject.UObjectRedirector");
+
+	TArray<FAssetData> OutRedirectorArray;
+	AssetRegistryModule.Get().GetAssets(Filter, OutRedirectorArray);
+
+	for (const FAssetData& RedirectorData : OutRedirectorArray)
+	{
+		if (UObjectRedirector* RedirectorToFix = Cast<UObjectRedirector>(RedirectorData.GetAsset()))
+		{
+			RedirectorToFixArray.Add(RedirectorToFix);
+		}
+	}
+
+	const FAssetToolsModule& AssetToolsModule =
+		FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
+
+	AssetToolsModule.Get().FixupReferencers(RedirectorToFixArray);
 }
 
 #pragma endregion

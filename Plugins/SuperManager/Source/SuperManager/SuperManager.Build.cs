@@ -19,7 +19,7 @@ public class SuperManager : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core", "Blutility", "Niagara", "UMG", "UnrealEd", "EditorScriptingUtilities", "AssetTools", "ContentBrowser"
+				"Core", "Blutility", "Niagara", "UMG", "UnrealEd", "EditorScriptingUtilities", "AssetTools", "ContentBrowser" ,"AssetRegistry"
 			});
 
 		PrivateDependencyModuleNames.AddRange(
