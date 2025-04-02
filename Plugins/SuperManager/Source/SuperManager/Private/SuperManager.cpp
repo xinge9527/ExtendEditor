@@ -51,7 +51,7 @@ TSharedRef<FExtender> FSuperManagerModule::CustomCBMenuExtender(const TArray<FSt
 		MenuExtender->AddMenuExtension(
 			FName("Delete"),
 			EExtensionHook::After,
-			TSharedPtr<FUICommandList>(),
+			TSharedPtr<FUICommandList>(), // 如果想增加自定义快捷键，可以在此处实现
 			FMenuExtensionDelegate::CreateRaw(this, &FSuperManagerModule::AddCBMenuEntry));
 
 		FolderPathsSelected = SelectedPaths;
@@ -67,6 +67,13 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 		FText::FromString(TEXT("安全的删除未被使用的资产")),
 		FSlateIcon(),
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteUnusedAssetButtonClicked)
+	);
+	
+	MenuBuilder.AddMenuEntry(
+		FText::FromString(TEXT("删除空文件目录")),
+		FText::FromString(TEXT("删除空文件目录")),
+		FSlateIcon(),
+		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteEmptyFolders)
 	);
 }
 
@@ -105,7 +112,8 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 	{
 		// 过滤掉不需要检索的文件
 		if (AssetPathName.Contains(TEXT("Developers")) ||
-			AssetPathName.Contains(TEXT("Collections")))
+			AssetPathName.Contains(TEXT("Collections"))
+		)
 		{
 			continue;
 		}
@@ -131,11 +139,42 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 	
 }
 
+void FSuperManagerModule::OnDeleteEmptyFolders()
+{
+	if (FolderPathsSelected.Num() == 0)
+	{
+		return;
+	}
+	
+	for (FString FolderPathSelected : FolderPathsSelected)
+	{
+		const TArray<FString> FilePaths = UEditorAssetLibrary::ListAssets(FolderPathSelected,true,true);
+		for (FString FilePath : FilePaths)
+		{
+			if (FilePath.Contains(TEXT("Developers")) ||
+			FilePath.Contains(TEXT("Collections")))
+			{
+				continue;
+			}
+			if (!UEditorAssetLibrary::DoesDirectoryExist(FilePath))
+			{
+				continue;
+			}
+			if ( UEditorAssetLibrary::DoesDirectoryHaveAssets(FilePath))
+			{
+				continue;
+			}
+			// 判断目录中是否有资产
+			UEditorAssetLibrary::DeleteDirectory(FilePath);
+		}
+	}
+}
+
 void FSuperManagerModule::FixUpRedirectors()
 {
 	TArray<UObjectRedirector*> RedirectorToFixArray;
 
-	FAssetRegistryModule& AssetRegistryModule =
+	const FAssetRegistryModule& AssetRegistryModule =
 		FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
 	FARFilter Filter;

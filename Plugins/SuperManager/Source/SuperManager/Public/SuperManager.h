@@ -24,6 +24,7 @@ public:
 	TSharedRef<FExtender> CustomCBMenuExtender(const TArray<FString>& SelectedPaths);
 	void AddCBMenuEntry(FMenuBuilder& MenuBuilder);
 	void OnDeleteUnusedAssetButtonClicked();
+	void OnDeleteEmptyFolders();
 
 	void FixUpRedirectors();
 #pragma endregion
