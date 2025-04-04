@@ -25,7 +25,16 @@ public:
 	void AddCBMenuEntry(FMenuBuilder& MenuBuilder);
 	void OnDeleteUnusedAssetButtonClicked();
 	void OnDeleteEmptyFolders();
+	void AdvanceDeletionButtonClicked();
 
 	void FixUpRedirectors();
+#pragma endregion
+
+#pragma region CustomEditorTab
+
+	void RegisterAdvanceDeletionTab();
+
+	TSharedRef<SDockTab> OnSpawnAdvanceDeletionTab(const FSpawnTabArgs& SpawnTabArgs);
+	
 #pragma endregion
 };

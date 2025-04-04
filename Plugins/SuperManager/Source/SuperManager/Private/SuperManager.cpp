@@ -14,6 +14,8 @@
 void FSuperManagerModule::StartupModule()
 {
 	InitCBMenuExtention();
+
+	RegisterAdvanceDeletionTab();
 }
 
 #pragma region 内容浏览器拓展
@@ -74,6 +76,13 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 		FText::FromString(TEXT("删除空文件目录")),
 		FSlateIcon(),
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteEmptyFolders)
+	);
+
+	MenuBuilder.AddMenuEntry(
+		FText::FromString(TEXT("高级删除")),
+		FText::FromString(TEXT("List assets by specific condition in a tab for deleting")),
+		FSlateIcon(),
+		FExecuteAction::CreateRaw(this, &FSuperManagerModule::AdvanceDeletionButtonClicked)
 	);
 }
 
@@ -170,6 +179,11 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 	}
 }
 
+void FSuperManagerModule::AdvanceDeletionButtonClicked()
+{
+	FGlobalTabmanager::Get()->TryInvokeTab(FName("AdvanceDeletion"));
+}
+
 void FSuperManagerModule::FixUpRedirectors()
 {
 	TArray<UObjectRedirector*> RedirectorToFixArray;
@@ -200,6 +214,23 @@ void FSuperManagerModule::FixUpRedirectors()
 }
 
 #pragma endregion
+
+#pragma region CustomEditorTab
+
+void FSuperManagerModule::RegisterAdvanceDeletionTab()
+{
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvanceDeletion"),
+	FOnSpawnTab::CreateRaw(this, &FSuperManagerModule::OnSpawnAdvanceDeletionTab))
+	.SetDisplayName(FText::FromString(TEXT("Advance Deletion")));
+}
+
+TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvanceDeletionTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	return SNew(SDockTab).TabRole(ETabRole::NomadTab);
+}
+
+#pragma endregion
+
 
 void FSuperManagerModule::ShutdownModule()
 {
