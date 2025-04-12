@@ -24,11 +24,11 @@ void FSuperManagerModule::StartupModule()
 void FSuperManagerModule::InitCBMenuExtention()
 {
 	// 加载内容浏览器
-	FContentBrowserModule& ContentBrowserModule=
-	FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+	FContentBrowserModule& ContentBrowserModule =
+		FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
 	// 获取内容浏览器右键菜单代理的引用
-	TArray<FContentBrowserMenuExtender_SelectedPaths>& AssetContextMenuExtenders= ContentBrowserModule.GetAllPathViewContextMenuExtenders();
+	TArray<FContentBrowserMenuExtender_SelectedPaths>& AssetContextMenuExtenders = ContentBrowserModule.GetAllPathViewContextMenuExtenders();
 
 	// 将自己的代码增加到代理里面，就能新增一个右键按钮
 	FContentBrowserMenuExtender_SelectedPaths CustomCBMenuDelegate;
@@ -59,7 +59,7 @@ TSharedRef<FExtender> FSuperManagerModule::CustomCBMenuExtender(const TArray<FSt
 
 		FolderPathsSelected = SelectedPaths;
 	}
-	
+
 	return MenuExtender;
 }
 
@@ -71,7 +71,7 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 		FSlateIcon(),
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteUnusedAssetButtonClicked)
 	);
-	
+
 	MenuBuilder.AddMenuEntry(
 		FText::FromString(TEXT("删除空文件目录")),
 		FText::FromString(TEXT("删除空文件目录")),
@@ -94,7 +94,7 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 		return;
 	}
 	if (FolderPathsSelected.Num() > 1)
-	{	
+	{
 		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("请不要同时选取多个文件"));
 		return;
 	}
@@ -116,7 +116,7 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 	}
 
 	FixUpRedirectors();
-	
+
 	TArray<FAssetData> UnusedAssetDataArray;
 	for (const FString& AssetPathName : AssetsPathNames)
 	{
@@ -146,7 +146,6 @@ void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 	{
 		DebugHeader::ShowMesDialog(EAppMsgType::Ok,TEXT("当前文件夹下没有未被引用的资产"));
 	}
-	
 }
 
 void FSuperManagerModule::OnDeleteEmptyFolders()
@@ -155,14 +154,14 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 	{
 		return;
 	}
-	
+
 	for (FString FolderPathSelected : FolderPathsSelected)
 	{
-		const TArray<FString> FilePaths = UEditorAssetLibrary::ListAssets(FolderPathSelected,true,true);
+		const TArray<FString> FilePaths = UEditorAssetLibrary::ListAssets(FolderPathSelected, true, true);
 		for (FString FilePath : FilePaths)
 		{
 			if (FilePath.Contains(TEXT("Developers")) ||
-			FilePath.Contains(TEXT("Collections")))
+				FilePath.Contains(TEXT("Collections")))
 			{
 				continue;
 			}
@@ -170,7 +169,7 @@ void FSuperManagerModule::OnDeleteEmptyFolders()
 			{
 				continue;
 			}
-			if ( UEditorAssetLibrary::DoesDirectoryHaveAssets(FilePath))
+			if (UEditorAssetLibrary::DoesDirectoryHaveAssets(FilePath))
 			{
 				continue;
 			}
@@ -221,29 +220,78 @@ void FSuperManagerModule::FixUpRedirectors()
 void FSuperManagerModule::RegisterAdvanceDeletionTab()
 {
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvanceDeletion"),
-	FOnSpawnTab::CreateRaw(this, &FSuperManagerModule::OnSpawnAdvanceDeletionTab))
-	.SetDisplayName(FText::FromString(TEXT("Advance Deletion")));
+	                                                  FOnSpawnTab::CreateRaw(this, &FSuperManagerModule::OnSpawnAdvanceDeletionTab))
+	                        .SetDisplayName(FText::FromString(TEXT("Advance Deletion")));
 }
 
 TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvanceDeletionTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	return SNew(SDockTab).TabRole(ETabRole::NomadTab)
-	[
-		SNew(SAdvanceDeletionTab)
-		.TestString(TEXT("I am passing data"))
-	];
+		[
+			SNew(SAdvanceDeletionTab)
+			.AssetDataToStore(GetAllAssetDataUnderSelectedFolder())
+		];
+}
+
+TArray<TSharedPtr<FAssetData>> FSuperManagerModule::GetAllAssetDataUnderSelectedFolder()
+{
+	if (FolderPathsSelected.IsEmpty())
+	{
+		return TArray<TSharedPtr<FAssetData>>();
+	}
+	TArray<TSharedPtr<FAssetData>> AssetDataArray;
+	TArray<FString> AssetsPathNames = UEditorAssetLibrary::ListAssets(FolderPathsSelected[0], true, true);
+
+	TArray<FAssetData> UnusedAssetDataArray;
+	for (const FString& AssetPathName : AssetsPathNames)
+	{
+		// 过滤掉不需要检索的文件
+		if (AssetPathName.Contains(TEXT("Developers")) ||
+			AssetPathName.Contains(TEXT("Collections"))
+		)
+		{
+			continue;
+		}
+
+		if (!UEditorAssetLibrary::DoesAssetExist(AssetPathName))continue;
+
+		const FAssetData Data = UEditorAssetLibrary::FindAssetData(AssetPathName);
+		AssetDataArray.Add(MakeShared<FAssetData>(Data));
+	}
+	return AssetDataArray;
 }
 
 #pragma endregion
 
+#pragma region ProcessDataForAssetList
+
+bool FSuperManagerModule::DeleteSingleAssetForAssetList(const FAssetData& AssetDataToDelete)
+{
+	TArray<FAssetData> AssetDataForDeletion;
+	AssetDataForDeletion.Add(AssetDataToDelete);
+	if (ObjectTools::DeleteAssets(AssetDataForDeletion) > 0)
+	{
+		return true;
+	}
+	return false;
+}
+
+bool FSuperManagerModule::DeleteMultipleAssetForAssetList(const TArray<FAssetData>& AssetsToDelete)
+{
+	if (ObjectTools::DeleteAssets(AssetsToDelete)>0)
+	{
+		return true;
+	}
+	return false;
+}
+
+#pragma endregion
 
 void FSuperManagerModule::ShutdownModule()
 {
-	
 }
 
 
-
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FSuperManagerModule, SuperManager)
